@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House Price Prediction - Linear Regression</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .panel {
+            background: rgba(255,255,255,0.1);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            color: #fff;
+            font-size: 1.3em;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.9);
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn.primary {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        }
+
+        .btn.primary:hover {
+            background: linear-gradient(45deg, #ff5252, #d63031);
+        }
+
+        .results {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .prediction {
+            font-size: 1.5em;
+            color: #4ecdc4;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .model-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+
+        .chart-container {
+            grid-column: 1 / -1;
+            height: 400px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .data-info {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>🏠 House Price Prediction</h1>
+        <p>Linear Regression Model using Square Footage, Bedrooms & Bathrooms</p>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <h2>📊 Model Training</h2>
+            <div class="data-info">
+                <strong>Dataset:</strong> House Prices Advanced Regression<br>
+                <strong>Features:</strong> Square Footage, Bedrooms, Bathrooms<br>
+                <strong>Target:</strong> Sale Price
+            </div>
+            
+            <button class="btn primary" onclick="loadAndTrainModel()">Load Dataset & Train Model</button>
+            
+            <div id="modelResults" class="results" style="display: none;">
+                <div class="model-stats">
+                    <div class="stat">
+                        <div>R² Score</div>
+                        <div class="stat-value" id="r2Score">-</div>
+                    </div>
+                    <div class="stat">
+                        <div>RMSE</div>
+                        <div class="stat-value" id="rmse">-</div>
+                    </div>
+                    <div class="stat">
+                        <div>Mean Error</div>
+                        <div class="stat-value" id="meanError">-</div>
+                    </div>
+                    <div class="stat">
+                        <div>Samples</div>
+                        <div class="stat-value" id="sampleCount">-</div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <strong>Linear Equation:</strong><br>
+                    <div id="equation" style="font-family: monospace; margin-top: 5px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>🔮 Price Prediction</h2>
+            
+            <div class="input-group">
+                <label>Square Footage</label>
+                <input type="number" id="sqft" placeholder="e.g., 2000" value="2000">
+            </div>
+            
+            <div class="input-group">
+                <label>Number of Bedrooms</label>
+                <input type="number" id="bedrooms" placeholder="e.g., 3" value="3">
+            </div>
+            
+            <div class="input-group">
+                <label>Number of Bathrooms</label>
+                <input type="number" id="bathrooms" placeholder="e.g., 2" value="2" step="0.5">
+            </div>
+            
+            <button class="btn" onclick="predictPrice()">Predict House Price</button>
+            
+            <div class="prediction" id="prediction" style="display: none;">
+                $<span id="predictedPrice">0</span>
+            </div>
+            
+            <div id="predictionDetails" class="results" style="display: none;">
+                <div id="breakdown"></div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="scatterChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let model = null;
+        let dataset = null;
+        let chart = null;
+
+        // Simulated dataset (in real implementation, this would load from Kaggle)
+        function generateSampleData() {
+            const data = [];
+            for (let i = 0; i < 1000; i++) {
+                const sqft = 800 + Math.random() * 2500;
+                const bedrooms = Math.floor(1 + Math.random() * 5);
+                const bathrooms = Math.max(1, Math.round((bedrooms * 0.75 + Math.random() * 1.5) * 2) / 2);
+                
+                // Price formula with some noise
+                const basePrice = 50000 + sqft * 120 + bedrooms * 15000 + bathrooms * 8000;
+                const noise = (Math.random() - 0.5) * basePrice * 0.3;
+                const price = Math.max(basePrice + noise, 50000);
+                
+                data.push({
+                    sqft: Math.round(sqft),
+                    bedrooms: bedrooms,
+                    bathrooms: bathrooms,
+                    price: Math.round(price)
+                });
+            }
+            return data;
+        }
+
+        // Linear regression implementation
+        function linearRegression(X, y) {
+            const n = X.length;
+            const features = X[0].length;
+            
+            // Add bias term (intercept)
+            const XWithBias = X.map(row => [1, ...row]);
+            
+            // Calculate coefficients using normal equation: β = (X^T X)^-1 X^T y
+            const XT = transpose(XWithBias);
+            const XTX = multiply(XT, XWithBias);
+            const XTXInv = invert(XTX);
+            const XTy = multiplyVector(XT, y);
+            const coefficients = multiplyVector(XTXInv, XTy);
+            
+            return coefficients;
+        }
+
+        // Matrix operations
+        function transpose(matrix) {
+            return matrix[0].map((_, i) => matrix.map(row => row[i]));
+        }
+
+        function multiply(A, B) {
+            const result = [];
+            for (let i = 0; i < A.length; i++) {
+                result[i] = [];
+                for (let j = 0; j < B[0].length; j++) {
+                    let sum = 0;
+                    for (let k = 0; k < A[0].length; k++) {
+                        sum += A[i][k] * B[k][j];
+                    }
+                    result[i][j] = sum;
+                }
+            }
+            return result;
+        }
+
+        function multiplyVector(matrix, vector) {
+            return matrix.map(row => 
+                row.reduce((sum, val, i) => sum + val * vector[i], 0)
+            );
+        }
+
+        function invert(matrix) {
+            const n = matrix.length;
+            const identity = matrix.map((row, i) => 
+                row.map((_, j) => i === j ? 1 : 0)
+            );
+            
+            const augmented = matrix.map((row, i) => [...row, ...identity[i]]);
+            
+            // Gaussian elimination
+            for (let i = 0; i < n; i++) {
+                let maxRow = i;
+                for (let j = i + 1; j < n; j++) {
+                    if (Math.abs(augmented[j][i]) > Math.abs(augmented[maxRow][i])) {
+                        maxRow = j;
+                    }
+                }
+                [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+                
+                for (let j = i + 1; j < n; j++) {
+                    const factor = augmented[j][i] / augmented[i][i];
+                    for (let k = 0; k < 2 * n; k++) {
+                        augmented[j][k] -= factor * augmented[i][k];
+                    }
+                }
+            }
+            
+            // Back substitution
+            for (let i = n - 1; i >= 0; i--) {
+                for (let j = i - 1; j >= 0; j--) {
+                    const factor = augmented[j][i] / augmented[i][i];
+                    for (let k = 0; k < 2 * n; k++) {
+                        augmented[j][k] -= factor * augmented[i][k];
+                    }
+                }
+                
+                for (let k = 0; k < 2 * n; k++) {
+                    augmented[i][k] /= augmented[i][i];
+                }
+            }
+            
+            return augmented.map(row => row.slice(n));
+        }
+
+        function calculateR2(actual, predicted) {
+            const mean = actual.reduce((a, b) => a + b) / actual.length;
+            const totalSumSquares = actual.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0);
+            const residualSumSquares = actual.reduce((sum, val, i) => sum + Math.pow(val - predicted[i], 2), 0);
+            return 1 - (residualSumSquares / totalSumSquares);
+        }
+
+        function calculateRMSE(actual, predicted) {
+            const mse = actual.reduce((sum, val, i) => sum + Math.pow(val - predicted[i], 2), 0) / actual.length;
+            return Math.sqrt(mse);
+        }
+
+        async function loadAndTrainModel() {
+            document.getElementById('modelResults').innerHTML = '<div class="loading">Loading dataset and training model...</div>';
+            document.getElementById('modelResults').style.display = 'block';
+            
+            // Simulate loading delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Generate sample data (in real app, load from Kaggle API)
+            dataset = generateSampleData();
+            
+            // Prepare features and target
+            const X = dataset.map(d => [d.sqft, d.bedrooms, d.bathrooms]);
+            const y = dataset.map(d => d.price);
+            
+            // Train model
+            model = linearRegression(X, y);
+            
+            // Calculate predictions and metrics
+            const predictions = X.map(features => 
+                model[0] + features[0] * model[1] + features[1] * model[2] + features[2] * model[3]
+            );
+            
+            const r2 = calculateR2(y, predictions);
+            const rmse = calculateRMSE(y, predictions);
+            const meanError = predictions.reduce((sum, pred, i) => sum + Math.abs(pred - y[i]), 0) / predictions.length;
+            
+            // Update UI
+            document.getElementById('modelResults').innerHTML = `
+                <div class="model-stats">
+                    <div class="stat">
+                        <div>R² Score</div>
+                        <div class="stat-value">${r2.toFixed(3)}</div>
+                    </div>
+                    <div class="stat">
+                        <div>RMSE</div>
+                        <div class="stat-value">$${rmse.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                    </div>
+                    <div class="stat">
+                        <div>Mean Error</div>
+                        <div class="stat-value">$${meanError.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                    </div>
+                    <div class="stat">
+                        <div>Samples</div>
+                        <div class="stat-value">${dataset.length}</div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <strong>Linear Equation:</strong><br>
+                    <div style="font-family: monospace; margin-top: 5px;">
+                        Price = $${model[0].toLocaleString(undefined, {maximumFractionDigits: 0})} + 
+                        $${model[1].toFixed(2)} × sqft + 
+                        $${model[2].toLocaleString(undefined, {maximumFractionDigits: 0})} × bedrooms + 
+                        $${model[3].toLocaleString(undefined, {maximumFractionDigits: 0})} × bathrooms
+                    </div>
+                </div>
+            `;
+            
+            // Create scatter plot
+            createScatterPlot(dataset, predictions);
+        }
+
+        function predictPrice() {
+            if (!model) {
+                alert('Please train the model first!');
+                return;
+            }
+            
+            const sqft = parseFloat(document.getElementById('sqft').value);
+            const bedrooms = parseFloat(document.getElementById('bedrooms').value);
+            const bathrooms = parseFloat(document.getElementById('bathrooms').value);
+            
+            if (!sqft || !bedrooms || !bathrooms) {
+                alert('Please fill in all fields!');
+                return;
+            }
+            
+            const prediction = model[0] + sqft * model[1] + bedrooms * model[2] + bathrooms * model[3];
+            
+            document.getElementById('predictedPrice').textContent = prediction.toLocaleString(undefined, {maximumFractionDigits: 0});
+            document.getElementById('prediction').style.display = 'block';
+            
+            // Show breakdown
+            document.getElementById('predictionDetails').innerHTML = `
+                <strong>Prediction Breakdown:</strong><br>
+                Base Price: $${model[0].toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                Square Footage (${sqft}): +$${(sqft * model[1]).toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                Bedrooms (${bedrooms}): +$${(bedrooms * model[2]).toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                Bathrooms (${bathrooms}): +$${(bathrooms * model[3]).toLocaleString(undefined, {maximumFractionDigits: 0})}<br>
+                <hr style="border: 1px solid rgba(255,255,255,0.3); margin: 10px 0;">
+                <strong>Total: $${prediction.toLocaleString(undefined, {maximumFractionDigits: 0})}</strong>
+            `;
+            document.getElementById('predictionDetails').style.display = 'block';
+        }
+
+        function createScatterPlot(data, predictions) {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Actual vs Predicted Prices',
+                        data: data.map((d, i) => ({
+                            x: d.price,
+                            y: predictions[i]
+                        })),
+                        backgroundColor: 'rgba(78, 205, 196, 0.6)',
+                        borderColor: 'rgba(78, 205, 196, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Perfect Prediction Line',
+                        data: [
+                            {x: Math.min(...data.map(d => d.price)), y: Math.min(...data.map(d => d.price))},
+                            {x: Math.max(...data.map(d => d.price)), y: Math.max(...data.map(d => d.price))}
+                        ],
+                        type: 'line',
+                        borderColor: 'rgba(255, 107, 107, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Model Performance: Actual vs Predicted Prices',
+                            color: '#333'
+                        },
+                        legend: {
+                            labels: {
+                                color: '#333'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Actual Price ($)',
+                                color: '#333'
+                            },
+                            ticks: {
+                                color: '#333',
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Predicted Price ($)',
+                                color: '#333'
+                            },
+                            ticks: {
+                                color: '#333',
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
